@@ -2,114 +2,173 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>⚡ 선착순 퀴즈 시스템</title>
+    <title>⚡ 기술가정 선착순 퀴즈</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #f0f2f5; padding-top: 40px; }
-        .container { max-width: 400px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        input { width: 80%; padding: 12px; font-size: 18px; margin-bottom: 20px; border: 2px solid #ddd; border-radius: 10px; text-align: center; }
-        #quiz-btn { width: 180px; height: 180px; border-radius: 50%; border: none; background: #ff4757; color: white; font-size: 26px; font-weight: bold; cursor: pointer; box-shadow: 0 8px 0 #c0392b; }
-        #quiz-btn:disabled { background: #ccc; box-shadow: 0 8px 0 #999; }
-        .winner-box { color: #2ed573; font-size: 30px; font-weight: bold; margin-top: 20px; border: 3px solid; padding: 10px; display: none; }
+        body { font-family: 'Apple SD Gothic Neo', sans-serif; text-align: center; background: #f4f7f9; padding-top: 30px; color: #333; }
+        .container { max-width: 450px; margin: auto; background: white; padding: 40px 20px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); }
+        h1 { font-size: 24px; margin-bottom: 30px; color: #2d3436; }
         
-        /* 교사용 관리창 스타일 */
-        .admin-section { margin-top: 50px; padding: 20px; border-top: 2px dashed #ccc; }
-        #admin-auth { display: none; margin-top: 10px; }
-        .admin-btn { background: #57606f; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; margin: 5px; }
+        /* 입력창 스타일 */
+        input { width: 80%; padding: 15px; font-size: 18px; margin-bottom: 25px; border: 2px solid #dfe6e9; border-radius: 12px; text-align: center; outline: none; transition: 0.3s; }
+        input:focus { border-color: #0984e3; }
+
+        /* 메인 버튼 스타일 */
+        #quiz-btn { 
+            width: 200px; height: 200px; border-radius: 50%; border: none; 
+            background: #ff7675; color: white; font-size: 28px; font-weight: bold; 
+            cursor: pointer; transition: all 0.2s; box-shadow: 0 10px 0 #d63031; 
+        }
+        #quiz-btn:active { transform: translateY(6px); box-shadow: 0 4px 0 #d63031; }
+        #quiz-btn:disabled { background: #b2bec3; box-shadow: 0 10px 0 #636e72; cursor: not-allowed; opacity: 0.7; }
+
+        /* 상태 및 결과 메시지 */
+        .status { margin-top: 30px; font-size: 18px; font-weight: 600; min-height: 40px; }
+        .winner-display { 
+            display: none; margin-top: 20px; padding: 15px; background: #55efc4; 
+            color: #00b894; border-radius: 15px; font-size: 32px; font-weight: 800; border: 3px solid #00b894; 
+        }
+
+        /* 관리자(교사용) 영역 */
+        .admin-area { margin-top: 60px; padding: 20px; border-top: 1px dashed #b2bec3; }
+        .admin-btn { background: #636e72; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin: 5px; font-size: 14px; }
+        #admin-panel { display: none; margin-top: 15px; background: #dfe6e9; padding: 15px; border-radius: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>⚡ 퀴즈 선착순</h2>
-    <input type="number" id="stuNum" placeholder="출석번호 입력">
+    <h1>⚡ 선착순 퀴즈 참여</h1>
+    
+    <input type="number" id="stuNum" placeholder="출석번호 입력" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');">
+    
     <br>
-    <button id="quiz-btn" onclick="pressButton()" disabled>대기 중</button>
-    <div id="status-text" style="margin-top:20px; font-weight:bold;">준비하세요!</div>
-    <div id="winner-box" class="winner-box"></div>
+    
+    <button id="quiz-btn" onclick="handleButtonClick()" disabled>대기 중</button>
+    
+    <div id="status-msg" class="status">선생님의 시작 신호를 기다리세요!</div>
+    <div id="winner-result" class="winner-display"></div>
 </div>
 
-<div class="admin-section">
-    <button class="admin-btn" onclick="showAuth('start')">퀴즈 시작</button>
-    <button class="admin-btn" onclick="showAuth('reset')">초기화</button>
+<div class="admin-area">
+    <button class="admin-btn" onclick="openAdmin('start')">퀴즈 시작</button>
+    <button class="admin-btn" onclick="openAdmin('reset')">초기화</button>
     
-    <div id="admin-auth">
-        <input type="password" id="adminPw" placeholder="암호 입력" style="width:150px; margin-bottom:5px;">
+    <div id="admin-panel">
+        <input type="password" id="adminPw" placeholder="암호 입력" style="width:120px; margin-bottom:10px; padding:8px;">
         <br>
-        <button class="admin-btn" id="confirm-btn">확인</button>
+        <button class="admin-btn" style="background:#0984e3;" onclick="confirmAdmin()">확인</button>
     </div>
 </div>
 
 <script>
-    // ⚠️ 여기에 선생님의 파이어베이스 주소를 꼭 넣어주세요!
+    // 1. 파이어베이스 설정 (본인의 주소로 꼭 바꿔주세요!)
     const firebaseConfig = {
         databaseURL: "https://to-know-first-default-rtdb.asia-southeast1.firebasedatabase.app/"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // 변수 설정
     const btn = document.getElementById('quiz-btn');
-    const winnerBox = document.getElementById('winner-box');
-    const statusText = document.getElementById('status-text');
-    let currentMode = '';
+    const statusMsg = document.getElementById('status-msg');
+    const winnerDisplay = document.getElementById('winner-result');
+    const adminPanel = document.getElementById('admin-panel');
+    let adminMode = '';
+    
+    // 부정행위 방지용 변수
+    let clickCount = 0;
+    let isBanned = false;
 
-    // 실시간 감시
+    // 2. 실시간 데이터베이스 감시
     db.ref('quizState').on('value', (snapshot) => {
-        const state = snapshot.val() || {};
-        if (state.isStarted) {
-            if (state.winner) {
-                btn.disabled = true;
-                btn.innerText = "종료";
-                winnerBox.innerText = state.winner + "번 당첨!";
-                winnerBox.style.display = "block";
-                statusText.innerText = "상황 종료";
-            } else {
-                btn.disabled = false;
-                btn.innerText = "누르세요!!";
-                winnerBox.style.display = "none";
-                statusText.innerText = "지금입니다!";
-            }
-        } else {
+        const data = snapshot.val() || {};
+        
+        // 초기화 상태 (선생님이 리셋을 누른 경우)
+        if (!data.isStarted) {
+            clickCount = 0;
+            isBanned = false;
             btn.disabled = true;
             btn.innerText = "대기";
-            winnerBox.style.display = "none";
-            statusText.innerText = "선생님이 시작하기를 기다리세요.";
+            btn.style.opacity = "1";
+            statusMsg.innerText = "준비하시고... (연타 금지!)";
+            statusMsg.style.color = "#333";
+            winnerDisplay.style.display = "none";
+        } 
+        // 퀴즈 진행 중
+        else {
+            if (data.winner) {
+                // 이미 누군가 선착순 당첨됨
+                btn.disabled = true;
+                btn.innerText = "종료";
+                winnerDisplay.innerText = "🎉 " + data.winner + "번 학생 당첨!";
+                winnerDisplay.style.display = "block";
+                statusMsg.innerText = "상황 종료!";
+            } else {
+                // 아직 아무도 안 눌렀고, 차단되지 않은 경우에만 활성화
+                if (!isBanned) {
+                    btn.disabled = false;
+                    btn.innerText = "누르세요!!";
+                    statusMsg.innerText = "지금입니다! 가장 빨리 누르세요!";
+                    winnerDisplay.style.display = "none";
+                }
+            }
         }
     });
 
-    function pressButton() {
+    // 3. 학생 버튼 클릭 핸들러
+    function handleButtonClick() {
         const num = document.getElementById('stuNum').value;
-        if (!num) return alert("번호 입력!");
-        db.ref('quizState/winner').transaction((curr) => {
-            if (curr === null) return num;
+        if (!num) {
+            alert("번호를 먼저 입력하세요!");
             return;
-        });
+        }
+
+        // [핵심] 대기 중(회색 버튼)일 때 연타 감지
+        if (btn.disabled && btn.innerText === "대기") {
+            clickCount++;
+            if (clickCount >= 5) {
+                isBanned = true;
+                alert("경고: 과도한 연타가 감지되어 이번 판은 제외됩니다!");
+                statusMsg.innerText = "⚠️ 부정행위로 차단됨";
+                statusMsg.style.color = "red";
+                btn.style.opacity = "0.3";
+            }
+            return;
+        }
+
+        // [핵심] 선착순 등록 (트랜잭션 사용)
+        if (!isBanned && !btn.disabled) {
+            db.ref('quizState/winner').transaction((currentWinner) => {
+                if (currentWinner === null) return num; // 내가 1등!
+                return; // 이미 주인 있음
+            });
+        }
     }
 
-    // 암호 입력창 띄우기
-    function showAuth(mode) {
-        currentMode = mode;
-        document.getElementById('admin-auth').style.display = 'block';
+    // 4. 교사용 관리 로직
+    function openAdmin(mode) {
+        adminMode = mode;
+        adminPanel.style.display = 'block';
         document.getElementById('adminPw').focus();
     }
 
-    // 암호 확인 버튼 클릭 시
-    document.getElementById('confirm-btn').onclick = function() {
+    function confirmAdmin() {
         const pw = document.getElementById('adminPw').value;
         if (pw === "20") {
-            if (currentMode === 'start') {
+            if (adminMode === 'start') {
                 db.ref('quizState').set({ isStarted: true, winner: null });
             } else {
                 db.ref('quizState').set({ isStarted: false, winner: null });
             }
             document.getElementById('adminPw').value = '';
-            document.getElementById('admin-auth').style.display = 'none';
+            adminPanel.style.display = 'none';
         } else {
-            alert("틀렸습니다!");
+            alert("비밀번호가 틀렸습니다.");
         }
-    };
+    }
 </script>
 
 </body>
